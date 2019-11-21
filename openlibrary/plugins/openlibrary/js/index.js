@@ -103,6 +103,12 @@ jQuery(function () {
         import(/* webpackChunkName: "graphs" */ './graphs')
             .then((module) => module.init());
     }
+
+    const pageScanEl = $('#page-scan');
+    if (pageScanEl) {
+        import(/* webpackChunkName: "page_scan" */ './page_scan')
+            .then((module) => module.init());
+    }
     validateEmail();
     validatePassword();
     $(document).on('click', '.slide-toggle', function () {
