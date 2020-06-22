@@ -22,6 +22,48 @@ $if page.get('identifiers'):
 $if isbn_10 and not asin:
     $ asin = isbn_10
 
+$code:
+    def get_seed_info():
+      if page.key.startswith("/subjects/"):
+          seed = page.key.split("/")[-1]
+          if seed.split(":")[0] not in ["place", "person", "time"]:
+              seed = "subject:" + seed
+          seed = seed.replace(",", "_").replace("__", "_")
+          seed_type = "subject"
+          title = page.name
+      else:
+          seed = {"key": page.key}
+          if page.key.startswith("/authors/"):
+              seed_type = "author"
+              title = page.get('name', 'name missing')
+          elif page.key.startswith("/works"):
+              seed_type = "work"
+              title = page.get("title", "untitled")
+          else:
+              seed_type = "edition"
+              title = page.get("title", "untitled")
+      return seed, seed_type, title
+    
+    def get_list_data(list, include_cover_url=True):
+      d = storage({
+          "name": list.name or "",
+          "key": list.key,
+          "active": list.has_seed(seed),
+      })
+      if include_cover_url:
+          cover = list.get_cover() or list.get_default_cover()
+          d['cover_url'] = cover and cover.url("S") or "/images/icons/avatar_book-sm.png"
+      owner = list.get_owner()
+      d['owner'] = storage(displayname=owner.displayname or "", key=owner.key)
+      return d
+
+    def get_user_lists():
+      lists = ctx.user and ctx.user.get_lists(sort=True) or []
+      return [get_list_data(list, include_cover_url=True) for list in lists]
+
+$ seed, seed_type, title = get_seed_info()
+$ user_lists = get_user_lists()
+
 <div class="Tools">
   <div id="read">
     $if page.volumes:
@@ -44,9 +86,6 @@ $if isbn_10 and not asin:
           $if not page.is_fake_record():
               $:render_template('covers/change', page, ".edition-cover .bookCover img")
         </div>
-        <div class="mobile-borrow-cta">
-          $:macros.LoanStatus(page, ctx.user, editions_page=True, render_preview_floater=False)
-        </div>
 
         $:macros.LoanStatus(page, ctx.user, editions_page=editions_page, block_name="read-options-panel")
 
@@ -61,10 +100,32 @@ $if isbn_10 and not asin:
             });
           });
         </script>
+        
+        $ work = (page.works and page.works[0]) if page.key.startswith("/books/") else page if page.key.startswith("/works/") else None
+        $ username = ctx.user and ctx.user.key.split('/')[-1]
+        $ users_work_read_status = work.get_users_read_status(username) if work and username else None
+        $ edition = page if page.key.startswith("/books/") else None
+        $ work_key = work and work.key
+        $ edition_key = edition and edition.key 
+        $ availability = page.availability if hasattr(page, 'availability') else {}
+        $ availability_st = availability.get('status')
+        $ ocaid = page.get('ocaid') or availability.get('identifier')
+        $ lending_st = {}
+        $ daisy = True
 
+        $if editions_page and (availability.get('is_browseable', False) or availability_st == 'borrow_unavailable'):
+          $ lending_st = get_cached_groundtruth_availability(ocaid)
+        $ is_printdisabled = lending_st.get('is_printdisabled', False) or availability.get('is_printdisabled', False)
+
+        $if ctx.user or not work_key:
+          $:macros.Wanttoread(user_lists, work_key, edition_key, users_work_read_status, username, page.url(), False)
+
+        $if ocaid and daisy:
+          $:macros.daisy(page, url='/ia/%s/daisy' % ocaid, protected=is_printdisabled, block_name="read-options-panel")
+        
         $if page.get('ocaid') and not page.is_access_restricted() and page.ia_metadata:
-            $:macros.DownloadOptions(page)
-
+          $:macros.DownloadOptions(page)
+      
       </div>
     </div>
   </div>

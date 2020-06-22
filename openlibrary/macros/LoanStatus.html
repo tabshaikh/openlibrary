@@ -6,7 +6,7 @@ $# * editions_page renders additional data if you're seeing LoanStatus rendered 
 $# * block_name is a BEM block name
 $# * render_preview_floater whether to render the HTML for the preview floater
 $# * listen whether to display listen button
-$# * daisy whether to display daisy print-disabled link
+$# * daisy whether to display render_preview_floater print-disabled link
 
 $ loanstatus_start_time = time()
 
@@ -133,7 +133,6 @@ $elif not ocaid or (is_restricted and not is_lendable):
 $if ocaid and daisy:
   $if editions_page and is_printdisabled:
     $:macros.BookPreview(ocaid, render_preview_floater)
-  $:macros.daisy(page, url='/ia/%s/daisy' % ocaid, protected=is_printdisabled, block_name=block_name)
 
 $if query_param('debug'):
   $ loanstatus_end_time = time() - loanstatus_start_time
